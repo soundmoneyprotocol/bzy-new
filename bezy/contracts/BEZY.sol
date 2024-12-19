@@ -11,12 +11,17 @@ import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @custom:security-contact security@bezy.xyz
-contract BEZY is ERC20, ERC20Burnable, ERC20Pausable, Ownable, ERC20Permit, ERC20Votes {
-    constructor(address initialOwner)
-        ERC20("BEZY", "BZY")
-        Ownable(initialOwner)
-        ERC20Permit("BEZY")
-    {
+contract BEZY is
+    ERC20,
+    ERC20Burnable,
+    ERC20Pausable,
+    Ownable,
+    ERC20Permit,
+    ERC20Votes
+{
+    constructor(
+        address initialOwner
+    ) ERC20("BEZY", "BZY") Ownable(initialOwner) ERC20Permit("BEZY") {
         _mint(msg.sender, 25000000000 * 10 ** decimals());
     }
 
@@ -30,19 +35,17 @@ contract BEZY is ERC20, ERC20Burnable, ERC20Pausable, Ownable, ERC20Permit, ERC2
 
     // The following functions are overrides required by Solidity.
 
-    function _update(address from, address to, uint256 value)
-        internal
-        override(ERC20, ERC20Pausable, ERC20Votes)
-    {
+    function _update(
+        address from,
+        address to,
+        uint256 value
+    ) internal override(ERC20, ERC20Pausable, ERC20Votes) {
         super._update(from, to, value);
     }
 
-    function nonces(address owner)
-        public
-        view
-        override(ERC20Permit, Nonces)
-        returns (uint256)
-    {
+    function nonces(
+        address owner
+    ) public view override(ERC20Permit, Nonces) returns (uint256) {
         return super.nonces(owner);
     }
 }
