@@ -1,6 +1,7 @@
 {
-  "name": "hardhat-sample",
+  "name": "bzy-new",
   "version": "0.0.1",
+  "type": "module",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -22,10 +23,12 @@
     "@typechain/hardhat": "^9.0.0",
     "@types/chai": "^4.2.0",
     "@types/mocha": "^9.1.0",
-    "chai": "^4.2.0",
-    "ethers": "^6.4.0",
+    "@types/node": "^22.10.2",
+    "chai": "^5.1.2",
+    "ethers": "^6.13.4",
     "hardhat": "^2.22.17",
     "hardhat-gas-reporter": "^1.0.8",
+    "mocha": "^11.0.1",
     "solidity-coverage": "^0.8.1",
     "ts-node": "^10.9.2",
     "typechain": "^8.3.0",
