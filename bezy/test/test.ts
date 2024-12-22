@@ -24,7 +24,7 @@ describe("BEZY", function () {
 
   it("Should mint the initial supply to the owner's address", async function () {
     const ownerBalance = await instance.balanceOf(owner.address);
-    expect(ownerBalance).to.equal(ethers.parseUnits("25000000000", await instance.decimals()));
+    expect(ownerBalance).to.equal(ethers.parseUnits("27000000000", await instance.decimals()));
   });
 
   it("Should allow the owner to pause and unpause the contract", async function () {

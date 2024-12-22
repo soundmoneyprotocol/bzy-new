@@ -22,7 +22,7 @@ contract BEZY is
     constructor(
         address initialOwner
     ) ERC20("BEZY", "BZY") Ownable(initialOwner) ERC20Permit("BEZY") {
-        _mint(msg.sender, 25000000000 * 10 ** decimals());
+        _mint(msg.sender, 27000000000 * 10 ** decimals());
     }
 
     function pause() public onlyOwner {
