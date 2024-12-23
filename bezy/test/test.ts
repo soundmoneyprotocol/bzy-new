@@ -1,73 +1,121 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-describe("BEZY", function () {
-  let ContractFactory: any;
-  let instance: any;
+describe("BEZY Contract", function () {
+  let BEZY: any;
+  let bezy: any;
   let owner: any;
   let addr1: any;
+  let addr2: any;
 
   before(async function () {
-    // Get the Contract Factory and signers
-    ContractFactory = await ethers.getContractFactory("BEZY");
-    [owner, addr1] = await ethers.getSigners();
+    [owner, addr1, addr2] = await ethers.getSigners();
 
     // Deploy the BEZY contract
-    instance = await ContractFactory.deploy(owner.address);
-    await instance.waitForDeployment();
+    const BEZYFactory = await ethers.getContractFactory("BEZY");
+    bezy = await BEZYFactory.deploy(owner.address);
+    await bezy.deployed();
   });
 
-  it("Should have the correct name and symbol", async function () {
-    expect(await instance.name()).to.equal("BEZY");
-    expect(await instance.symbol()).to.equal("BZY");
+  describe("Deployment", function () {
+    it("Should set the correct name and symbol", async function () {
+      expect(await bezy.name()).to.equal("BEZY");
+      expect(await bezy.symbol()).to.equal("BEZY");
+    });
+
+    it("Should mint the initial supply to the deployer", async function () {
+      const totalSupply = await bezy.totalSupply();
+      const decimals = await bezy.decimals();
+      const expectedSupply = ethers.BigNumber.from(27000000000).mul(ethers.BigNumber.from(10).pow(decimals));
+
+      expect(totalSupply).to.equal(expectedSupply);
+      expect(await bezy.balanceOf(owner.address)).to.equal(expectedSupply);
+    });
+
+    it("Should set the owner to the deployer address", async function () {
+      expect(await bezy.owner()).to.equal(owner.address);
+    });
   });
 
-  it("Should mint the initial supply to the owner's address", async function () {
-    const ownerBalance = await instance.balanceOf(owner.address);
-    expect(ownerBalance).to.equal(ethers.parseUnits("27000000000", await instance.decimals()));
+  describe("Minting", function () {
+    it("Should allow the owner to mint tokens", async function () {
+      const mintAmount = ethers.utils.parseUnits("1000", await bezy.decimals());
+      await bezy.connect(owner).mint(addr1.address, mintAmount);
+
+      expect(await bezy.balanceOf(addr1.address)).to.equal(mintAmount);
+    });
+
+    it("Should not allow non-owners to mint tokens", async function () {
+      const mintAmount = ethers.utils.parseUnits("1000", await bezy.decimals());
+      await expect(bezy.connect(addr1).mint(addr1.address, mintAmount)).to.be.revertedWith("Ownable: caller is not the owner");
+    });
   });
 
-  it("Should allow the owner to pause and unpause the contract", async function () {
-    // Pause the contract
-    await instance.pause();
-    expect(await instance.paused()).to.equal(true);
+  describe("Transfer and Votes", function () {
+    it("Should transfer tokens between accounts", async function () {
+      const transferAmount = ethers.utils.parseUnits("500", await bezy.decimals());
+      await bezy.connect(addr1).transfer(addr2.address, transferAmount);
 
-    // Try to transfer tokens while paused
-    await expect(instance.transfer(addr1.address, ethers.parseUnits("1000", await instance.decimals()))).to.be.revertedWith("Pausable: paused");
+      expect(await bezy.balanceOf(addr1.address)).to.equal(
+        ethers.utils.parseUnits("500", await bezy.decimals())
+      );
+      expect(await bezy.balanceOf(addr2.address)).to.equal(transferAmount);
+    });
 
-    // Unpause the contract
-    await instance.unpause();
-    expect(await instance.paused()).to.equal(false);
+    it("Should update voting power upon transfers", async function () {
+      const initialVotesAddr1 = await bezy.getVotes(addr1.address);
+      const initialVotesAddr2 = await bezy.getVotes(addr2.address);
 
-    // Transfer tokens after unpausing
-    await instance.transfer(addr1.address, ethers.parseUnits("1000", await instance.decimals()));
-    const addr1Balance = await instance.balanceOf(addr1.address);
-    expect(addr1Balance).to.equal(ethers.parseUnits("1000", await instance.decimals()));
+      const transferAmount = ethers.utils.parseUnits("200", await bezy.decimals());
+      await bezy.connect(addr1).transfer(addr2.address, transferAmount);
+
+      expect(await bezy.getVotes(addr1.address)).to.equal(initialVotesAddr1.sub(transferAmount));
+      expect(await bezy.getVotes(addr2.address)).to.equal(initialVotesAddr2.add(transferAmount));
+    });
   });
 
-  it("Should allow burning tokens", async function () {
-    const initialBalance = await instance.balanceOf(owner.address);
+  describe("Permit and Nonces", function () {
+    it("Should return the correct nonce for an address", async function () {
+      const nonce = await bezy.nonces(owner.address);
+      expect(nonce).to.equal(0);
+    });
 
-    // Burn some tokens
-    const burnAmount = ethers.parseUnits("5000", await instance.decimals());
-    await instance.burn(burnAmount);
+    it("Should update nonce after a permit", async function () {
+      const domain = {
+        name: "BEZY",
+        version: "1",
+        chainId: (await ethers.provider.getNetwork()).chainId,
+        verifyingContract: bezy.address,
+      };
 
-    const finalBalance = await instance.balanceOf(owner.address);
-    expect(finalBalance).to.equal(initialBalance - burnAmount);
-  });
+      const types = {
+        Permit: [
+          { name: "owner", type: "address" },
+          { name: "spender", type: "address" },
+          { name: "value", type: "uint256" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      };
 
-  it("Should return the correct nonces", async function () {
-    const nonce = await instance.nonces(owner.address);
-    expect(nonce).to.equal(0); // Initially, the nonce should be 0
-  });
+      const value = ethers.utils.parseUnits("100", await bezy.decimals());
+      const nonce = await bezy.nonces(owner.address);
+      const deadline = Math.floor(Date.now() / 1000) + 3600;
 
-  it("Should have voting power functionality", async function () {
-    const initialVotes = await instance.getVotes(owner.address);
-    expect(initialVotes).to.equal(0);
+      const signature = await owner._signTypedData(domain, types, {
+        owner: owner.address,
+        spender: addr1.address,
+        value,
+        nonce,
+        deadline,
+      });
 
-    // Delegate votes to self
-    await instance.delegate(owner.address);
-    const updatedVotes = await instance.getVotes(owner.address);
-    expect(updatedVotes).to.equal(await instance.balanceOf(owner.address));
+      const { v, r, s } = ethers.utils.splitSignature(signature);
+
+      await bezy.permit(owner.address, addr1.address, value, deadline, v, r, s);
+
+      expect(await bezy.nonces(owner.address)).to.equal(nonce.add(1));
+      expect(await bezy.allowance(owner.address, addr1.address)).to.equal(value);
+    });
   });
 });
