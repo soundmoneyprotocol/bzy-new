@@ -13,7 +13,7 @@ describe("BEZY Contract", function () {
 
     // Deploy the BEZY contract
     const BEZYFactory = await ethers.getContractFactory("BEZY");
-    bezy = await BEZYFactory.deploy(owner.address);
+    bezy = await BEZYFactory.deploy();
     await bezy.deployed();
   });
 
@@ -31,35 +31,34 @@ describe("BEZY Contract", function () {
       expect(totalSupply).to.equal(expectedSupply);
       expect(await bezy.balanceOf(owner.address)).to.equal(expectedSupply);
     });
-
-    it("Should set the owner to the deployer address", async function () {
-      expect(await bezy.owner()).to.equal(owner.address);
-    });
   });
 
-  describe("Minting", function () {
-    it("Should allow the owner to mint tokens", async function () {
-      const mintAmount = ethers.utils.parseUnits("1000", await bezy.decimals());
-      await bezy.connect(owner).mint(addr1.address, mintAmount);
+  describe("Burning", function () {
+    it("Should allow token holders to burn tokens", async function () {
+      const burnAmount = ethers.utils.parseUnits("1000", await bezy.decimals());
+      const initialBalance = await bezy.balanceOf(owner.address);
 
-      expect(await bezy.balanceOf(addr1.address)).to.equal(mintAmount);
+      await bezy.connect(owner).burn(burnAmount);
+
+      expect(await bezy.balanceOf(owner.address)).to.equal(initialBalance.sub(burnAmount));
+      expect(await bezy.totalSupply()).to.equal(initialBalance.sub(burnAmount));
     });
 
-    it("Should not allow non-owners to mint tokens", async function () {
-      const mintAmount = ethers.utils.parseUnits("1000", await bezy.decimals());
-      await expect(bezy.connect(addr1).mint(addr1.address, mintAmount)).to.be.revertedWith("Ownable: caller is not the owner");
+    it("Should fail when trying to burn more than the balance", async function () {
+      const burnAmount = ethers.utils.parseUnits("1", await bezy.decimals());
+      await expect(bezy.connect(addr1).burn(burnAmount)).to.be.revertedWith("ERC20: burn amount exceeds balance");
     });
   });
 
   describe("Transfer and Votes", function () {
     it("Should transfer tokens between accounts", async function () {
       const transferAmount = ethers.utils.parseUnits("500", await bezy.decimals());
-      await bezy.connect(addr1).transfer(addr2.address, transferAmount);
+      await bezy.connect(owner).transfer(addr1.address, transferAmount);
 
-      expect(await bezy.balanceOf(addr1.address)).to.equal(
-        ethers.utils.parseUnits("500", await bezy.decimals())
+      expect(await bezy.balanceOf(addr1.address)).to.equal(transferAmount);
+      expect(await bezy.balanceOf(owner.address)).to.equal(
+        (await bezy.totalSupply()).sub(transferAmount)
       );
-      expect(await bezy.balanceOf(addr2.address)).to.equal(transferAmount);
     });
 
     it("Should update voting power upon transfers", async function () {
